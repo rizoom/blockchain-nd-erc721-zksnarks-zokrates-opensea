@@ -24,7 +24,8 @@ contract Ownable {
     }
 
     constructor() internal {
-        transferOwnership(msg.sender);
+        _owner = msg.sender;
+        emit ownershipTransferred(_owner);
     }
 
     function isOwner() public view returns (bool) {
@@ -38,8 +39,8 @@ contract Ownable {
     function transferOwnership(address newOwner) public onlyOwner {
         // make sure the new owner is a real address
         require(newOwner.isContract() == false, "Ownership cannot be transfered to a contract address");
-        _owner = newOwner;
 
+        _owner = newOwner;
         emit ownershipTransferred(_owner);
     }
 }
@@ -245,7 +246,7 @@ contract ERC721 is Pausable, ERC165 {
     // @dev Internal function to mint a new token
     // TIP: remember the functions to use for Counters. you can refresh yourself with the link above
     function _mint(address to, uint256 tokenId) internal {
-        require(_exists(tokenId) == true && to != address(0), "Invalid tokenId or address");
+        require(_exists(tokenId) != true && to != address(0), "Invalid tokenId or address");
 
         _tokenOwner[tokenId] = to;
         _ownedTokensCount[to].increment();
@@ -519,7 +520,7 @@ contract ERC721Metadata is ERC721Enumerable, usingOraclize {
     // TIP #2: you can also use uint2str() to convert a uint to a string
     // see https://github.com/oraclize/ethereum-api/blob/master/oraclizeAPI_0.5.sol for strConcat()
     // require the token exists before setting
-    function setTokenUri(uint256 tokenId) internal {
+    function setTokenURI(uint256 tokenId) internal {
         require(_exists(tokenId));
 
         // using strConcat and uint2str from oraclizeAPI
@@ -544,7 +545,7 @@ contract ZoomToken is ERC721Metadata {
 
     function mint(address to, uint256 tokenId) public onlyOwner returns (bool) {
         _mint(to, tokenId);
-        setTokenUri(tokenId);
+        setTokenURI(tokenId);
         return true;
     }
 }

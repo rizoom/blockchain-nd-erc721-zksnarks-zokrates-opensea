@@ -12,7 +12,8 @@
   "author": "Thibaut",
   "license": "ISC",
   "devDependencies": {
-    "lite-server": "2.4.0"
+    "lite-server": "2.4.0",
+    "prettier": "1.18.2"
   },
   "dependencies": {
     "openzeppelin-solidity": "^2.2.0",
