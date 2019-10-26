@@ -245,7 +245,6 @@ contract ERC721 is Pausable, ERC165 {
     // @dev Internal function to mint a new token
     // TIP: remember the functions to use for Counters. you can refresh yourself with the link above
     function _mint(address to, uint256 tokenId) internal {
-
         require(_exists(tokenId) == true && to != address(0), "Invalid tokenId or address");
 
         _tokenOwner[tokenId] = to;
@@ -257,7 +256,6 @@ contract ERC721 is Pausable, ERC165 {
     // @dev Internal function to transfer ownership of a given token ID to another address.
     // TIP: remember the functions to use for Counters. you can refresh yourself with the link above
     function _transferFrom(address from, address to, uint256 tokenId) internal {
-
         require(from == ownerOf(tokenId), "from address should be the owner of the token");
         require(to != address(0), "to is not a valid address");
 
@@ -529,7 +527,6 @@ contract ERC721Metadata is ERC721Enumerable, usingOraclize {
     }
 }
 
-//  TODO's: Create CustomERC721Token contract that inherits from the ERC721Metadata contract. You can name this contract as you please
 //  1) Pass in appropriate values for the inherited ERC721Metadata contract
 //      - make the base token uri: https://s3-us-west-2.amazonaws.com/udacity-blockchain/capstone/
 //  2) create a public mint() that does the following:
@@ -537,6 +534,17 @@ contract ERC721Metadata is ERC721Enumerable, usingOraclize {
 //      -takes in a 'to' address, tokenId, and tokenURI as parameters
 //      -returns a true boolean upon completion of the function
 //      -calls the superclass mint and setTokenURI functions
+contract ZoomToken is ERC721Metadata {
 
+    string private constant NAME = "Zoom";
+    string private constant SYMBOL = "ZMT";
+    string private constant BASE_TOKEN_URI = "https://s3-us-west-2.amazonaws.com/udacity-blockchain/capstone/";
 
+    constructor () public ERC721Metadata(NAME, SYMBOL, BASE_TOKEN_URI) {}
 
+    function mint(address to, uint256 tokenId) public onlyOwner returns (bool) {
+        _mint(to, tokenId);
+        setTokenUri(tokenId);
+        return true;
+    }
+}
