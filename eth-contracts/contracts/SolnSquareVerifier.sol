@@ -10,9 +10,9 @@ contract SolnSquareVerifier is ZoomToken, SquareVerifier {
     }
 
     Solution[] private _solutions;
-    mapping(bytes32 => Solution) solutionByKeys;
+    mapping(uint => Solution) _usedSolutions;
 
-    event SolutionAdded(uint index, address owner, bytes32 key);
+    event SolutionAdded(uint index, address owner);
 
     function addSolution(
         uint[2] memory a,
@@ -20,48 +20,23 @@ contract SolnSquareVerifier is ZoomToken, SquareVerifier {
         uint[2] memory c,
         uint[2] memory input
     ) public {
-        bytes32 key = keccak256(abi.encodePacked(a, b, c, input));
-        require(solutionByKeys[key].owner == address(0), "proof already used");
-
         bool accepted = verifyTx(a, b, c, input);
         require(accepted, "Invalid solution");
 
         Solution memory solution = Solution(_solutions.length, msg.sender);
         _solutions.push(solution);
-        solutionByKeys[key] = solution;
 
-        emit SolutionAdded(solution.index, solution.owner, key);
+        emit SolutionAdded(solution.index, solution.owner);
+    }
+
+    function mintWithSolution(uint solutionIndex) public {
+        require(_usedSolutions[solutionIndex].owner == address(0), "Solution already used");
+
+        Solution memory solution = _solutions[solutionIndex];
+        require(solution.owner != address(0), "No solution submitted at this index");
+        require(solution.owner == msg.sender, "Only solution owner can mint");
+
+        _usedSolutions[solutionIndex] = solution;
+        mint(solution.owner, solutionIndex);
     }
 }
-
-// TODO Create a function to mint new NFT only after the solution has been verified
-//  - make sure the solution is unique (has not been used before)
-//  - make sure you handle metadata as well as tokenSuplly
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
