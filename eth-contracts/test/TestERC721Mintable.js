@@ -3,6 +3,7 @@ const ZoomToken = artifacts.require("ZoomToken");
 contract("TestERC721Mintable", accounts => {
   const account_one = accounts[0];
   const account_two = accounts[1];
+  const account_three = accounts[2];
 
   describe("match erc721 spec", function() {
     beforeEach(async function() {
@@ -38,6 +39,14 @@ contract("TestERC721Mintable", accounts => {
 
       const owner = await this.contract.ownerOf.call(1);
       assert.equal(owner, account_two, "Account two should be the owner");
+    });
+
+    it("should transfer token when approved for all", async function() {
+      await this.contract.setApprovalForAll(account_three, true, { from : account_two });
+      await this.contract.transferFrom(account_two, account_one, 3, { from : account_three });
+
+      const owner = await this.contract.ownerOf.call(3);
+      assert.equal(owner, account_one, "Account one should be the owner");
     });
   });
 

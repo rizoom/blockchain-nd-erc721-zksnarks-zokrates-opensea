@@ -16,7 +16,7 @@ contract Ownable {
     //  5) create an event that emits anytime ownerShip is transfered (including in the constructor)
     address private _owner;
 
-    event ownershipTransferred(address newOwner);
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
     modifier onlyOwner() {
         require(isOwner(), "caller should be the contract owner");
@@ -25,7 +25,7 @@ contract Ownable {
 
     constructor() internal {
         _owner = msg.sender;
-        emit ownershipTransferred(_owner);
+        emit OwnershipTransferred(address(0), _owner);
     }
 
     function isOwner() public view returns (bool) {
@@ -38,10 +38,11 @@ contract Ownable {
 
     function transferOwnership(address newOwner) public onlyOwner {
         // make sure the new owner is a real address
-        require(newOwner.isContract() == false, "Ownership cannot be transfered to a contract address");
+        require(newOwner != address(0), "Ownership cannot be transfered to the zero address");
 
+        address previousOwner = _owner;
         _owner = newOwner;
-        emit ownershipTransferred(_owner);
+        emit OwnershipTransferred(previousOwner, _owner);
     }
 }
 
@@ -56,7 +57,7 @@ contract Pausable is Ownable {
     event Paused(address caller);
     event Unpaused(address caller);
 
-    modifier paused() {
+    modifier whenPaused() {
         require(_paused == true, "contract is currently not paused");
         _;
     }
@@ -67,17 +68,27 @@ contract Pausable is Ownable {
     }
 
     constructor() internal {
-        setPaused(false);
+        _paused = false;
     }
 
-    function setPaused(bool paused_) public onlyOwner {
-        _paused = paused_;
+    function paused() public view returns (bool) {
+        return _paused;
+    }
 
-        if (_paused) {
-            emit Paused(msg.sender);
-        } else {
-            emit Unpaused(msg.sender);
-        }
+    /**
+     * @dev Called by a pauser to pause, triggers stopped state.
+     */
+    function pause() public onlyOwner whenNotPaused {
+        _paused = true;
+        emit Paused(msg.sender);
+    }
+
+    /**
+     * @dev Called by a pauser to unpause, returns to normal state.
+     */
+    function unpause() public onlyOwner whenPaused {
+        _paused = false;
+        emit Unpaused(msg.sender);
     }
 }
 
@@ -157,6 +168,8 @@ contract ERC721 is Pausable, ERC165 {
     }
 
     function balanceOf(address owner) public view returns (uint256) {
+        require(owner != address(0), "ERC721: balance query for the zero address");
+
         return _ownedTokensCount[owner].current();
     }
 
@@ -165,10 +178,10 @@ contract ERC721 is Pausable, ERC165 {
     }
 
     //    @dev Approves another address to transfer the given token ID
-    function approve(address to, uint256 tokenId) public {
+    function approve(address to, uint256 tokenId) public whenNotPaused {
         address owner = ownerOf(tokenId);
         require(to != owner, "Cannot transfer to the current token owner");
-        require(msg.sender == owner || isApprovedForAll(owner, to), "Only the token owner or an approved operator can do the approval");
+        require(msg.sender == owner || isApprovedForAll(owner, msg.sender), "Only the token owner or an approved operator can do the approval");
 
         _tokenApprovals[tokenId] = to;
 
@@ -177,9 +190,6 @@ contract ERC721 is Pausable, ERC165 {
 
     function getApproved(uint256 tokenId) public view returns (address) {
         require(_exists(tokenId), "No token for this tokenId");
-
-        address approved = _tokenApprovals[tokenId];
-        require(approved != address(0), "No approved address for this tokenId");
 
         return _tokenApprovals[tokenId];
     }
@@ -190,7 +200,7 @@ contract ERC721 is Pausable, ERC165 {
      * @param to operator address to set the approval
      * @param approved representing the status of the approval to be set
      */
-    function setApprovalForAll(address to, bool approved) public {
+    function setApprovalForAll(address to, bool approved) public whenNotPaused {
         require(to != msg.sender);
         _operatorApprovals[msg.sender][to] = approved;
         emit ApprovalForAll(msg.sender, to, approved);
@@ -239,8 +249,18 @@ contract ERC721 is Pausable, ERC165 {
      * is an operator of the owner, or is the owner of the token
      */
     function _isApprovedOrOwner(address spender, uint256 tokenId) internal view returns (bool) {
+        require(_exists(tokenId), "ERC721: operator query for nonexistent token");
         address owner = ownerOf(tokenId);
         return (spender == owner || getApproved(tokenId) == spender || isApprovedForAll(owner, spender));
+    }
+
+    function _safeMint(address to, uint256 tokenId) internal {
+        _safeMint(to, tokenId, "");
+    }
+
+    function _safeMint(address to, uint256 tokenId, bytes memory _data) internal {
+        _mint(to, tokenId);
+        require(_checkOnERC721Received(address(0), to, tokenId, _data), "ERC721: transfer to non ERC721Receiver implementer");
     }
 
     // @dev Internal function to mint a new token
@@ -254,9 +274,24 @@ contract ERC721 is Pausable, ERC165 {
         emit Transfer(address(0), to, tokenId);
     }
 
+    function _burn(address owner, uint256 tokenId) internal {
+        require(ownerOf(tokenId) == owner, "ERC721: burn of token that is not own");
+
+        _clearApproval(tokenId);
+
+        _ownedTokensCount[owner].decrement();
+        _tokenOwner[tokenId] = address(0);
+
+        emit Transfer(owner, address(0), tokenId);
+    }
+
+    function _burn(uint256 tokenId) internal {
+        _burn(ownerOf(tokenId), tokenId);
+    }
+
     // @dev Internal function to transfer ownership of a given token ID to another address.
     // TIP: remember the functions to use for Counters. you can refresh yourself with the link above
-    function _transferFrom(address from, address to, uint256 tokenId) internal {
+    function _transferFrom(address from, address to, uint256 tokenId) internal whenNotPaused {
         require(from == ownerOf(tokenId), "from address should be the owner of the token");
         require(to != address(0), "to is not a valid address");
 
@@ -383,6 +418,23 @@ contract ERC721Enumerable is ERC165, ERC721 {
         _addTokenToOwnerEnumeration(to, tokenId);
 
         _addTokenToAllTokensEnumeration(tokenId);
+    }
+
+    /**
+ * @dev Internal function to burn a specific token.
+ * Reverts if the token does not exist.
+ * Deprecated, use {ERC721-_burn} instead.
+ * @param owner owner of the token to burn
+ * @param tokenId uint256 ID of the token being burned
+ */
+    function _burn(address owner, uint256 tokenId) internal {
+        super._burn(owner, tokenId);
+
+        _removeTokenFromOwnerEnumeration(owner, tokenId);
+        // Since tokenId will be deleted, we can clear its slot in _ownedTokensIndex to trigger a gas refund
+        _ownedTokensIndex[tokenId] = 0;
+
+        _removeTokenFromAllTokensEnumeration(tokenId);
     }
 
     /**
